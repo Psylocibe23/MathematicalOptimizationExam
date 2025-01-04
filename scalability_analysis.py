@@ -106,14 +106,13 @@ Scalability Results:
 
 
 Risultati riportati sull'articolo per i dataset usati per i test:
--GS1: objective function value 150.000 (1.5 su scala 100k)
-      number of constraints 34.000
--GS5: objective function value 130.000 (1.3 su scala 100k)
-      number of constraints 36.000
--GM1: objective function value 3.600.000 (36 su scala 100k)
-      number of constraints 1.154.000 
--GM2: objective function value 47.600.000 (47.6 su scala 100k)
-      number of constraints 3.162.000
+| ID*  | Objective Function Value (Scaled) | Constraints (Scaled) |
+|----------|---------------------------------------|---------------------------|
+| GS1  | 1.5 (on scale 100k)                  | 34 (on scale 1k)         |
+| GS5  | 1.3 (on scale 100k)                  | 36 (on scale 1k)         |
+| GM1  | 36 (on scale 100k)                   | 1,154 (on scale 1k)      |
+| GM2  | 47.6 (on scale 100k)                 | 3,162 (on scale 1k)      |
+
       
       
 --- Running MBLP on dataset: GS1 ---------------------------------------------------------------------------------------
