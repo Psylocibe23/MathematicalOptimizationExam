@@ -1,10 +1,10 @@
 # MBLP Python Implementation
 
-This repository contains a Python implementation of the mixed binary linear program (MBLP) described in the article [Mathematical Optimization for Real-World Problems](https://www.sciencedirect.com/science/article/pii/S0377221722003071) by (authors' names).
+This repository contains a Python implementation of the mixed binary linear program (MBLP) described in the article [Mathematical Optimization for Real-World Problems](https://www.sciencedirect.com/science/article/pii/S0377221722003071) by T. Bigler, M. Kammermann, P. Baumann.
 
 ## Datasets
 
-The project utilizes a variety of datasets to evaluate the performance and scalability of the optimization model. The datasets range from small to medium and include a specialized test set with a limited number of customers. Details of the datasets are as follows:
+The datasets range from small to medium and include a specialized test set with a limited number of customers (not included in the scalability analysis). Details of the datasets are as follows:
 
 | ID  | Customers | Activities | Eligibility Fraction [%] | Eligibility Patterns |
 |-----|-----------|------------|--------------------------|----------------------|
