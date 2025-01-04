@@ -1,6 +1,6 @@
 # MBLP Python Implementation
 
-This repository contains a Python implementation of the mixed binary linear program (MBLP) described in the article [Mathematical Optimization for Real-World Problems](https://www.sciencedirect.com/science/article/pii/S0377221722003071) by T. Bigler, M. Kammermann, P. Baumann.
+This repository contains a Python implementation of the mixed binary linear program (MBLP) described in the article [A matheuristic for a customer assignment problem in direct marketing](https://www.sciencedirect.com/science/article/pii/S0377221722003071) by T. Bigler, M. Kammermann, P. Baumann.
 
 ## Datasets
 
