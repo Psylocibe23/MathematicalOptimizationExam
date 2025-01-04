@@ -106,12 +106,12 @@ Scalability Results:
 
 
 Risultati riportati sull'articolo per i dataset usati per i test:
-| ID*  | Objective Function Value (Scaled) | Constraints (Scaled) |
-|----------|---------------------------------------|---------------------------|
-| GS1  | 1.5 (on scale 100k)                  | 34 (on scale 1k)         |
-| GS5  | 1.3 (on scale 100k)                  | 36 (on scale 1k)         |
-| GM1  | 36 (on scale 100k)                   | 1,154 (on scale 1k)      |
-| GM2  | 47.6 (on scale 100k)                 | 3,162 (on scale 1k)      |
+| ID*  | Objective Function Value (Scaled) | Constraints (Scaled)     |
+|------|-----------------------------------|--------------------------|
+| GS1  | 1.5 (on scale 100k)               | 34 (on scale 1k)         |
+| GS5  | 1.3 (on scale 100k)               | 36 (on scale 1k)         |
+| GM1  | 36 (on scale 100k)                | 1,154 (on scale 1k)      |
+| GM2  | 47.6 (on scale 100k)              | 3,162 (on scale 1k)      |
 
       
       
