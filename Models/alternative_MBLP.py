@@ -8,7 +8,6 @@ class AlternativeMBLP(base_MBLP):
     # Second formulation of the MBLP that uses the LP solution
     def __init__(self, data):
         super().__init__('Mixed Binary Linear Model - Alternative', data)
-        # If needed, you can set a default k value for clustering here.
         self.k = 20
 
 

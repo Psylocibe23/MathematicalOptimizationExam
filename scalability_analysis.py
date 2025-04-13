@@ -117,6 +117,7 @@ def collect_mblp_results(model_class=MBLP, instance='GS1'):
 def collect_heuristic_results(instance='GS1', k=20):
     """
         Run the Matheuristic on a specified instance and collect results in csv
+        k is the value for the mini-batch k-means algorithm to further divide groups into subgroups
     """
     instance_path = 'Datasets\\' + instance
     loader = DataLoader(instance_path)
@@ -434,11 +435,6 @@ def performance_profile_from_times(instances, times, algo_names):
     Plots a performance profile comparing algorithms based on CPU times
     :param instances: list of instances names
     :param times: dictionary mapping algorithm names to lists of CPU times
-
-    The performance profile is defined such that for each instance p and algorithm a:
-       r(p,a) = t(p,a) / min{ t(p,a') over a' }
-    and the curve for an algorithm is the fraction of instances for which r(p,a) <= t,
-    plotted as a function of t
     """
     # Convert the times lists into numpy arrays
     times_arr = {algo: np.array(times[algo]) for algo in algo_names}
@@ -541,14 +537,14 @@ if __name__=='__main__':
     }
     algo_names = ['MBLP', 'AlternativeMBLP']
     # run models and save results
-    """collect_mblp_results(model_class=MBLP, instance='GS1')
+    collect_mblp_results(model_class=MBLP, instance='GS1')
     collect_heuristic_results(instance='GS1', k=20)
-    collect_heuristic_without_modeling(instance='GS1', k=20)"""
+    collect_heuristic_without_modeling(instance='GS1', k=20)
     # Plots for comparative analysis
-    """plot_from_csv(file_name, colors, dataset_type='GS')
+    plot_from_csv(file_name, colors, dataset_type='GS')
     plot_mipgap_vs_k(instance='GS2', optimal_objective=125742)
     instances, cpu_time = build_cpu_time_dict_from_csv(file_name, algo_names)
-    performance_profile_from_times(instances, cpu_time, algo_names)"""
-    #plot_cpu_time_vs_k()
-    #plot_num_constrs_vs_k()
-    #plot_conflicts_vs_k()
+    performance_profile_from_times(instances, cpu_time, algo_names)
+    plot_cpu_time_vs_k()
+    plot_num_constrs_vs_k()
+    plot_conflicts_vs_k()
