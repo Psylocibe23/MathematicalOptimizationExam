@@ -1,395 +1,554 @@
+import os
 import time
 import psutil
-import pandas as pd
+from gurobipy import GRB, GurobiError
 from loader import DataLoader
-from MBLP import MBLP
+from Models.MBLP import MBLP
+from Models.Matheuristic import Matheuristic
+from Models.alternative_MBLP import AlternativeMBLP
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
-def get_dataset_data(dataset_name):
-    """
-    Return data for one these datasets:
-    -GS1 (10.000 customers, 50 activities)
-    -GS5 (20.000 customers, 75 activities)
-    -GM1 (100.000 customers, 100 activities)
-    -GM5 (200.000 customers, 125 activities)
-    """
-    if dataset_name == 'GS1':
-        base_path = r"C:\Users\sprea\Desktop\MathematicalOptimization\Datasets\GS1"
-    elif dataset_name == 'GS5':
-        base_path = r"C:\Users\sprea\Desktop\MathematicalOptimization\Datasets\GS5"
-    elif dataset_name == 'GM1':
-        base_path = r"C:\Users\sprea\Desktop\MathematicalOptimization\Datasets\GM1"
-    elif dataset_name == 'GM5':
-        base_path = r"C:\Users\sprea\Desktop\MathematicalOptimization\Datasets\GM5"
+
+file_name = 'results.csv'
+field_names = ['Model', 'Instance', 'OFV', 'MipGap(%)', 'CPU_time(SEC)', 'Memory_usage(MB)', 'Number_constraints', 'Status']
+results = []
+
+# -------------------------------------------------------------------------------------------------------------------
+# Helper Functions
+# -------------------------------------------------------------------------------------------------------------------
+
+def get_status_string(status):
+    if status == GRB.OPTIMAL:
+        return "Optimal"
+    elif status == GRB.INFEASIBLE:
+        return "Infeasible"
+    elif status == GRB.UNBOUNDED:
+        return "Unbounded"
+    elif status == GRB.TIME_LIMIT:
+        return "Time limit reached"
+    elif status == GRB.INTERRUPTED:
+        return "Interrupted"
     else:
-        raise ValueError(f"Unknown dataset: {dataset_name}")
-
-    # Initialize dataloader
-    dataloader = DataLoader(base_path)
-    return dataloader.data
+        return f"Status {status}"
 
 
-def run_scalability_experiment():
-    dataset_names = ['GS1', 'GS5', 'GM1', 'GM5']
-    results = []
+def update_results_csv(new_row, file_name, field_names):
+    """
+        After the model results are collected, updates the csv file
+    """
+    dtype_dict = {
+        'Model': str,
+        'Instance': str,
+        'OFV': float,
+        'MipGap(%)': float,
+        'CPU_time(SEC)': float,
+        'Memory_usage(MB)': float,
+        'Number_constraints': float,
+        'Status': str
+    }
 
-    for dset in dataset_names:
-        print(f"\n--- Running MBLP on dataset: {dset} ---")
+    if os.path.exists(file_name):
+        df = pd.read_csv(file_name)
+        condition = (df['Model'] == new_row['Model']) & (df['Instance'] == new_row['Instance'])
+        new_row_df = pd.DataFrame([new_row])
+        new_row_df = new_row_df.astype(dtype_dict)
+        if condition.any():
+            df.loc[condition, :] = new_row_df
+        else:
+            df = pd.concat([df, new_row_df], ignore_index=True)
+        df.to_csv(file_name, index=False)
+    else:
+        df = pd.DataFrame([new_row], columns=field_names)
+        df = df.astype(dtype_dict)
+        df.to_csv(file_name, index=False)
 
-        # 1) Load data via DataLoader
-        data = get_dataset_data(dset)
+# -------------------------------------------------------------------------------------------------------------------
+# Results Collection Functions
+# -------------------------------------------------------------------------------------------------------------------
 
-        # 2) Create MBLP model
-        model_instance = MBLP(data)
+# Define three methods to run the models on specified instances and save the results to results.csv
+# I had to use this approach since running multiple models on multiple instances in a for loop ended up in unexpected
+# out of memory errors
+def collect_mblp_results(model_class=MBLP, instance='GS1'):
+    """
+        Run the MBLP or the alternative MBLP model on a specified instance and collect results on csv
+    """
+    instance_path = "Datasets\\" + instance
+    loader = DataLoader(instance_path)
+    data = loader.data
 
-        # 3) measure memory usage BEFORE
-        process = psutil.Process()
-        mem_before = process.memory_info().rss / (1024 * 1024)
+    process = psutil.Process(os.getpid())
+    mem_before = process.memory_info().rss / (1024 * 1024)
+    model = model_class(data)
+    model.model.setParam('TimeLimit', 1800)
 
-        # 4) Record start time
+    try:
+        start_time = time.time()
+        model.run()
+        status = model.model.status
+    except GurobiError as e:
+        if 'out of memory' in str(e).lower():
+            print('Out of memory error')
+            status = None
+        else:
+            raise
+
+    end_time = time.time() - start_time
+    mem_after = process.memory_info().rss / (1024 * 1024)
+    mem_usage = mem_after - mem_before
+    obj_value = model.model.ObjVal if hasattr(model.model, 'ObjVal') else None
+
+    result_row = {
+        'Model': model_class.__name__,
+        'Instance': instance,
+        'OFV': round(obj_value, 0) if obj_value is not None else None,
+        'MipGap(%)': round(model.model.MIPGap, 2) if hasattr(model.model, 'MIPGap') else None,
+        'CPU_time(SEC)': round(end_time, 2),
+        'Memory_usage(MB)': round(mem_usage, 2),
+        'Number_constraints': model.model.NumConstrs if hasattr(model.model, 'NumConstrs') else None,
+        'Status': get_status_string(status)
+    }
+
+    update_results_csv(result_row, file_name, field_names)
+
+
+def collect_heuristic_results(instance='GS1', k=20):
+    """
+        Run the Matheuristic on a specified instance and collect results in csv
+    """
+    instance_path = 'Datasets\\' + instance
+    loader = DataLoader(instance_path)
+    data = loader.data
+
+    process = psutil.Process(os.getpid())
+    mem_before = process.memory_info().rss / (1024 * 1024)
+    model = Matheuristic(data, k)
+
+    start_time = time.time()
+    model.run()
+    end_time = time.time() - start_time
+    mem_after = process.memory_info().rss / (1024 * 1024)
+    mem_usage = mem_after - mem_before
+    obj_value = model.iterative_algorithm.compute_objective_value()
+    # Use the optimal value of the MBLP to compute MipGap (%)
+    mblp_obj = None
+    if os.path.exists(file_name):
+        df = pd.read_csv(file_name)
+        mblp_row = df[(df['Model'] == 'MBLP') & (df['Instance'] == instance)]
+        if not mblp_row.empty:
+            mblp_obj_val = mblp_row.iloc[0]['OFV']
+            try:
+                mblp_obj = float(str(mblp_obj_val).replace(',', ''))
+            except Exception as e:
+                print("Error converting MBLP OFV to float:", e)
+                mblp_obj = None
+
+    if mblp_obj is not None and obj_value is not None:
+        mip_gap = abs(mblp_obj - obj_value) / abs(mblp_obj) * 100
+        mip_gap = round(mip_gap, 2)
+    else:
+        mip_gap = None
+
+    result_row = {
+        'Model': 'Matheuristic',
+        'Instance': instance,
+        'OFV': round(obj_value, 0),
+        'MipGap(%)': mip_gap,
+        'CPU_time(SEC)': round(end_time, 2),
+        'Memory_usage(MB)': abs(round(mem_usage, 2)),
+        'Number_constraints': model.lp.model.NumConstrs,
+        'Status': f"K={k}"
+    }
+
+    update_results_csv(result_row, file_name, field_names)
+
+
+def collect_heuristic_without_modeling(instance='GS1', k=20):
+    """
+        Collect the Matheuristic without the new modeling technique, to be compared with Heuristic results to see
+        the impact of the new modeling technique
+    """
+    instance_path = 'Datasets\\' + instance
+    loader = DataLoader(instance_path)
+    data = loader.data
+
+    process = psutil.Process(os.getpid())
+    mem_before = process.memory_info().rss / (1024 * 1024)
+    model = Matheuristic(data, k)
+
+    start_time = time.time()
+    model.run_without_new_modeling()
+    end_time = time.time() - start_time
+    mem_after = process.memory_info().rss / (1024 * 1024)
+    mem_usage = mem_after - mem_before
+    obj_value = model.iterative_algorithm.compute_objective_value()
+
+    mblp_obj = None
+    if os.path.exists(file_name):
+        df = pd.read_csv(file_name)
+        mblp_row = df[(df['Model'] == 'MBLP') & (df['Instance'] == instance)]
+        if not mblp_row.empty:
+            mblp_obj_val = mblp_row.iloc[0]['OFV']
+            try:
+                mblp_obj = float(str(mblp_obj_val).replace(',', ''))
+            except Exception as e:
+                print("Error converting MBLP OFV to float:", e)
+                mblp_obj = None
+
+    if mblp_obj is not None and obj_value is not None:
+        mip_gap = abs(mblp_obj - obj_value) / abs(mblp_obj) * 100
+        mip_gap = round(mip_gap, 2)
+    else:
+        mip_gap = None
+
+    result_row = {
+        'Model': 'MatheuristicWithoutModeling',
+        'Instance': instance,
+        'OFV': round(obj_value, 0),
+        'MipGap(%)': mip_gap,
+        'CPU_time(SEC)': round(end_time, 2),
+        'Memory_usage(MB)': abs(round(mem_usage, 2)),
+        'Number_constraints': model.lp.model.NumConstrs,
+        'Status': f"K={k}"
+    }
+
+    update_results_csv(result_row, file_name, field_names)
+
+# -------------------------------------------------------------------------------------------------------------------
+# Plotting Functions
+# -------------------------------------------------------------------------------------------------------------------
+
+# save bar charts for the three models wrt to CPU_time, Memory_usage and Number of Constraints
+def plot_overlapped_bar_chart(instances, values_dict, title, ylabel, filename, colors):
+    plt.figure(figsize=(15, 6))
+    width = 0.8
+    models = list(values_dict.keys())
+
+    for i, instance in enumerate(instances):
+        bars = [(model, values_dict[model][i], colors[model])
+                for model in models if values_dict[model][i] is not None]
+        if not bars:
+            # Skip this instance if no model has valid data
+            continue
+        bars_sorted = sorted(bars, key=lambda x: x[1], reverse=True)
+        for order, (model, value, color) in enumerate(bars_sorted):
+            label = model if i == 0 else None
+            plt.bar(i, value, width, color=color, zorder=order, label=label)
+
+    valid_indices = [i for i, instance in enumerate(instances)
+                     if any(values_dict[model][i] is not None for model in models)]
+    valid_instances = [instances[i] for i in valid_indices]
+
+    plt.xticks(valid_indices, valid_instances, rotation=45)
+    plt.title(title)
+    plt.ylabel(ylabel)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(filename)
+    plt.close()
+
+
+def plot_from_csv(file_name, colors, dataset_type='GS'):
+    df = pd.read_csv(file_name)
+    # Filter rows for given instances type (Small, Medium)
+    df_filtered = df[df['Instance'].str.startswith(dataset_type)]
+    instances = sorted(df_filtered['Instance'].unique())
+
+    # Helper function to build a list of metric values for a given metric and model
+    def build_metric_list(metric, model):
+        df_model = df_filtered[df_filtered['Model'] == model]
+        lookup = {}
+
+        for idx, row in df_model.iterrows():
+            # If the status for this row is "out of memory", do not report its metric
+            if str(row['Status']).strip().lower() == 'out of memory':
+                lookup[row['Instance']] = None
+            else:
+                lookup[row['Instance']] = row[metric]
+
+        return [lookup.get(inst, None) for inst in instances]
+
+    models = ['MBLP', 'Matheuristic', 'AlternativeMBLP']
+    memory_usage = {m: build_metric_list('Memory_usage(MB)', m) for m in models}
+    cpu_time = {m: build_metric_list('CPU_time(SEC)', m) for m in models}
+    num_constraints = {m: build_metric_list('Number_constraints', m) for m in models}
+
+    # Plot overlapped bar charts for each metric
+    plot_overlapped_bar_chart(instances, memory_usage,
+                              title="Memory Usage per Instance",
+                              ylabel="Memory Usage (MB)",
+                              filename="Plots/GM_memory_usage.png",
+                              colors=colors)
+
+    plot_overlapped_bar_chart(instances, cpu_time,
+                              title="CPU Time per Instance",
+                              ylabel="CPU Time (sec)",
+                              filename="Plots/GM_cpu_time.png",
+                              colors=colors)
+
+    plot_overlapped_bar_chart(instances, num_constraints,
+                              title="Number of Constraints per Instance",
+                              ylabel="Number of Constraints",
+                              filename="Plots/GM_number_of_constraints.png",
+                              colors=colors)
+
+
+def plot_mipgap_vs_k(instance='GS2', optimal_objective=125742):
+    """
+    Computes and plots the MipGap (%) versus the number of clusters (k) for the Matheuristic model on a given instance
+    For each k, it runs the Matheuristic model, retrieves the objective function value using
+    the iterative algorithm, and calculates the MipGap (%) with respect to the provided optimal objective
+
+    Parameters:
+      instance (str): instance name
+      optimal_objective (float): The known optimal objective value for the instance
+    """
+    instance_path = f'Datasets\\{instance}'
+    dataloader = DataLoader(instance_path)
+    data = dataloader.data
+
+    # Create a dictionary to store the MipGap (%) for different k values
+    heuristic_mip_gap = {k: 0 for k in range(10, 110, 10)}
+
+    for k in range(10, 110, 10):
+        # Instantiate and run the Matheuristic model with a given k
+        heuristic = Matheuristic(data, k)
+        heuristic.run()
+        # Compute MipGap
+        gap = (abs(optimal_objective - heuristic.iterative_algorithm.compute_objective_value()) /
+               abs(optimal_objective)) * 100
+        heuristic_mip_gap[k] = round(gap, 2)
+
+    x_values = list(heuristic_mip_gap.keys())
+    y_values = list(heuristic_mip_gap.values())
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(x_values, y_values, marker='o', linestyle='-', color='blue')
+    plt.xlabel('k (number of clusters)')
+    plt.ylabel('MipGap (%)')
+    plt.title(f'MipGap (%) vs k for instance {instance}')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('Plots/mipgap_vs_k.png')
+
+
+def plot_cpu_time_vs_k(instance='GS2'):
+    """
+    Computes and plots the CPU time (sec) versus the number of clusters (k) for the Matheuristic model on a given
+    instance for each k
+    """
+    instance_path = f'Datasets\\{instance}'
+    dataloader = DataLoader(instance_path)
+    data = dataloader.data
+
+    # Create a dictionary to store the CPU time (sec) for different k values
+    heuristic_cpu_time = {k: 0 for k in range(10, 110, 10)}
+
+    for k in range(10, 110, 10):
+        # Instantiate and run the Matheuristic model with a given k
+        heuristic = Matheuristic(data, k)
         start_time = time.time()
 
-        # 5) Run the model
-        model_instance.run()
+        heuristic.run()
 
-        # 6) Record end time
-        end_time = time.time()
-        runtime = end_time - start_time
+        end_time = time.time() - start_time
+        heuristic_cpu_time[k] = round(end_time, 2)
 
-        # 7) Memory usage AFTER
-        mem_after = process.memory_info().rss / (1024 * 1024)
-        mem_used = mem_after - mem_before
+    x_values = list(heuristic_cpu_time.keys())
+    y_values = list(heuristic_cpu_time.values())
 
-        # 8) Gather solution info
-        if hasattr(model_instance, 'model') and model_instance.model is not None:
-            total_constraints = model_instance.model.NumConstrs
-            total_variables   = model_instance.model.NumVars
+    plt.figure(figsize=(8, 6))
+    plt.plot(x_values, y_values, marker='o', linestyle='-', color='blue')
+    plt.xlabel('k (number of clusters)')
+    plt.ylabel('CPU time (sec)')
+    plt.title(f'CPU time (sec) vs k')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('Plots/cpu_time_vs_k.png')
 
-            if model_instance.model.Status == 2:  # GRB.OPTIMAL
-                obj_value = model_instance.model.ObjVal
-            else:
-                obj_value = None
+
+def plot_num_constrs_vs_k(instance='GS2'):
+    """
+    Computes and plots the CPU time (sec) versus the number of clusters (k) for the Matheuristic model on a given
+    instance for each k
+    """
+    instance_path = f'Datasets\\{instance}'
+    dataloader = DataLoader(instance_path)
+    data = dataloader.data
+
+    # Create a dictionary to store the CPU time (sec) for different k values
+    heuristic_num_constrs = {k: 0 for k in range(10, 110, 10)}
+
+    for k in range(10, 110, 10):
+        # Instantiate and run the Matheuristic model with a given k
+        heuristic = Matheuristic(data, k)
+        heuristic.run()
+        heuristic_num_constrs[k] = heuristic.lp.model.NumConstrs
+
+    x_values = list(heuristic_num_constrs.keys())
+    y_values = list(heuristic_num_constrs.values())
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(x_values, y_values, marker='o', linestyle='-', color='blue')
+    plt.xlabel('k (number of clusters)')
+    plt.ylabel('Number of Constraints')
+    plt.title(f'Number of Constraints vs k')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('Plots/num_constrs_vs_k.png')
+
+
+def plot_conflicts_vs_k(instance='GS2'):
+    """
+    Computes and plots the Memory usage (MB) versus the number of clusters (k) for the Matheuristic model on a given
+    instance for each k
+    """
+    instance_path = f'Datasets\\{instance}'
+    dataloader = DataLoader(instance_path)
+    data = dataloader.data
+
+    heuristic_conflicts = {k: 0 for k in range(10, 110, 10)}
+
+    for k in range(10, 110, 10):
+        heuristic = Matheuristic(data, k)
+        heuristic.run()
+        heuristic_conflicts[k] = heuristic.lp.count_conflict_constraints()
+
+    x_values = list(heuristic_conflicts.keys())
+    y_values = list(heuristic_conflicts.values())
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(x_values, y_values, marker='o', linestyle='-', color='blue')
+    plt.xlabel('k (number of clusters)')
+    plt.ylabel('Conflict Constraints')
+    plt.title(f'Conflict Constraints vs k')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('Plots/conflicts_vs_k.png')
+
+
+def performance_profile_from_times(instances, times, algo_names):
+    """
+    Plots a performance profile comparing algorithms based on CPU times
+    :param instances: list of instances names
+    :param times: dictionary mapping algorithm names to lists of CPU times
+
+    The performance profile is defined such that for each instance p and algorithm a:
+       r(p,a) = t(p,a) / min{ t(p,a') over a' }
+    and the curve for an algorithm is the fraction of instances for which r(p,a) <= t,
+    plotted as a function of t
+    """
+    # Convert the times lists into numpy arrays
+    times_arr = {algo: np.array(times[algo]) for algo in algo_names}
+
+    best_time = np.min(np.vstack([times_arr[algo] for algo in algo_names]), axis=0)
+    # Compute performance ratios for each algorithm
+    ratios = {algo: times_arr[algo] / best_time for algo in algo_names}
+
+    t_min = 1.0
+    t_max = np.max([np.max(ratios[algo]) for algo in algo_names])
+    t_values = np.linspace(t_min, t_max, 100)
+    # Compute the fraction of instances solved within each factor t
+    profile = {algo: [] for algo in algo_names}
+    for t in t_values:
+        for algo in algo_names:
+            fraction = np.mean(ratios[algo] <= t)
+            profile[algo].append(fraction)
+    print("Instances:", instances)
+
+    for algo in algo_names:
+        print(f"\nRatios for {algo}:")
+        print(ratios[algo])
+
+    plt.figure(figsize=(8, 6))
+    for algo in algo_names:
+        plt.plot(t_values, profile[algo], marker='o', label=algo)
+    plt.xlabel('Performance factor t')
+    plt.ylabel('Fraction of instances solved within factor t')
+    plt.title('Performance Profile (CPU Time)')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('Plots/performance_profile_cpu_time.png')
+    plt.show()
+
+
+def build_metric_list(metric, model, df_filtered):
+    """
+        Build a list of metric values for each instance for a given model
+    """
+    df_model = df_filtered[df_filtered['Model'] == model]
+
+    # Build a lookup dictionary mapping each instance to its metric value
+    lookup = {}
+    for idx, row in df_model.iterrows():
+        if metric == 'CPU_time(SEC)' and str(row['Status']).strip().lower() == 'out of memory':
+            lookup[row['Instance']] = np.inf
         else:
-            total_constraints = 0
-            total_variables   = 0
-            obj_value         = None
-
-        # 9) Store in results
-        results.append({
-            'dataset': dset,
-            'runtime_sec': runtime,
-            'mem_used_MB': mem_used,
-            'constraints': total_constraints,
-            'variables': total_variables,
-            'objective': obj_value
-        })
-
-    # 10) Convert to DataFrame and print
-    df = pd.DataFrame(results)
-    print("\nScalability Results:")
-    print(df)
-    df.to_csv("scalability_results.csv", index=False)
-    print("Results saved to scalability_results.csv")
-
-run_scalability_experiment()
-
-
-"""
-RESULTS:
-
-Scalability Results:
-  dataset  runtime_sec   mem_used_MB  constraints  variables     objective
-0     GS1     2.943065    638.851562        10075     500004  2.301497e+05
-1     GS5     6.475440   1492.851562        20109    1500003  2.196454e+05
-2     GM1    70.052554  13271.167969       100756   10000004  5.875897e+06
-3     GM5   208.182224   8499.402344       201565   25000004  8.101797e+06
-
-
-
-Risultati riportati sull'articolo per i dataset usati per i test:
--GS1: objective function value 150.000 (1.5 su scala 100k)
-      number of constraints 34.000
--GS5: objective function value 130.000 (1.3 su scala 100k)
-      number of constraints 36.000
--GM1: objective function value 3.600.000 (36 su scala 100k)
-      number of constraints 1.154.000 
--GM2: objective function value 47.600.000 (47.6 su scala 100k)
-      number of constraints 3.162.000
-      
-      
---- Running MBLP on dataset: GS1 ---------------------------------------------------------------------------------------
-Set parameter Username
-Academic license - for non-commercial use only - expires 2025-04-25
-Mapping for b_a: {'direct mail': 0, 'email': 1}
-Mapping for b_b: {'call center': 0, ('direct mail', 'email', 'text message'): 1}
-Mapping for b_a_bar: {'call center': 0, 'text message': 1}
-Mapping for b_s: {'ALL': 0}
-Mapping for b_s_bar: {'ALL': 0}
-Mapping for b_m_bar: {'ALL': 0}
-Gurobi Optimizer version 11.0.2 build v11.0.2rc0 (win64 - Windows 11+.0 (26100.2))
-
-CPU model: 12th Gen Intel(R) Core(TM) i7-12700KF, instruction set [SSE2|AVX|AVX2]
-Thread count: 12 physical cores, 20 logical processors, using up to 20 threads
-
-Optimize a model with 10075 rows, 500004 columns and 69152 nonzeros
-Model fingerprint: 0x65d5d1d9
-Variable types: 4 continuous, 500000 integer (500000 binary)
-Coefficient statistics:
-  Matrix range     [8e-03, 9e+00]
-  Objective range  [2e-03, 6e+02]
-  Bounds range     [1e+00, 2e+03]
-  RHS range        [1e+00, 9e+03]
-Found heuristic solution: objective 61682.238483
-Presolve removed 7689 rows and 479903 columns
-Presolve time: 0.04s
-Presolved: 2386 rows, 20101 columns, 40860 nonzeros
-Variable types: 1 continuous, 20100 integer (20099 binary)
-Found heuristic solution: objective 94828.864689
-
-Root relaxation: objective 2.301558e+05, 1263 iterations, 0.04 seconds (0.07 work units)
-
-    Nodes    |    Current Node    |     Objective Bounds      |     Work
- Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
-
-     0     0 230155.817    0    2 94828.8647 230155.817   143%     -    0s
-H    0     0                    230149.72052 230155.817  0.00%     -    0s
-
-Explored 1 nodes (1263 simplex iterations) in 0.28 seconds (0.26 work units)
-Thread count was 20 (of 20 available processors)
-
-Solution count 4: 230150 94828.9 62199.3 61682.2 
-
-Optimal solution found (tolerance 1.00e-04)
-Best objective 2.301497205224e+05, best bound 2.301558168085e+05, gap 0.0026%
-Slack Variables for Min assignment:
-z_a[direct mail] = 0.0
-z_a[email] = 0.0
-
-Slack Variables for Min sales:
-z_s[ALL] = 0.017888404028347914
-
-Slack Variables for Max sales:
-z_s_bar[ALL] = 0.017888404028347914
-
-Constraints:
-Total number of constraints: 10075
-Total number of variables: 500004
-
-Optimization complete for Mixed Binary Linear Model
-Maximum potential profit (in 100k dollars): 2,302
-Penalty for minimum assignment violations (in 100k dollars): 0,000
-Penalty for minimum sales violations (in 100k dollars): 0,000
-Penalty for maximum sales violations (in 100k dollars): 0,000
-Alpha, Beta, Gamma values: 584.1478039597198, 584.1478039597198, 584.1478039597198
-Objective value: 230,150
-
-
-
-
-
---- Running MBLP on dataset: GS5 ---------------------------------------------------------------------------------------
-Mapping for b_a: {'text message': 0}
-Mapping for b_b: {'call center': 0, ('direct mail', 'email', 'text message'): 1}
-Mapping for b_a_bar: {'direct mail': 0, 'email': 1}
-Mapping for b_s: {'ALL': 0}
-Mapping for b_s_bar: {'ALL': 0}
-Mapping for b_m_bar: {'ALL': 0}
-Gurobi Optimizer version 11.0.2 build v11.0.2rc0 (win64 - Windows 11+.0 (26100.2))
-
-CPU model: 12th Gen Intel(R) Core(TM) i7-12700KF, instruction set [SSE2|AVX|AVX2]
-Thread count: 12 physical cores, 20 logical processors, using up to 20 threads
-
-Optimize a model with 20109 rows, 1500003 columns and 99019 nonzeros
-Model fingerprint: 0xd13d9e5c
-Variable types: 3 continuous, 1500000 integer (1500000 binary)
-Coefficient statistics:
-  Matrix range     [7e-03, 7e+00]
-  Objective range  [1e-04, 4e+02]
-  Bounds range     [1e+00, 2e+03]
-  RHS range        [1e+00, 4e+03]
-Found heuristic solution: objective 155694.83793
-Found heuristic solution: objective 155694.83793
-Presolve removed 17882 rows and 1473900 columns
-Presolve time: 0.09s
-Presolved: 2227 rows, 26103 columns, 39273 nonzeros
-Variable types: 1 continuous, 26102 integer (26101 binary)
-
-Root relaxation: objective 2.196636e+05, 1196 iterations, 0.03 seconds (0.06 work units)
-
-    Nodes    |    Current Node    |     Objective Bounds      |     Work
- Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
-
-     0     0 219663.593    0    2 155694.838 219663.593  41.1%     -    0s
-H    0     0                    219645.40439 219663.593  0.01%     -    0s
-
-Explored 1 nodes (1196 simplex iterations) in 0.42 seconds (0.30 work units)
-Thread count was 20 (of 20 available processors)
-
-Solution count 3: 219645 155695 154731 
-
-Optimal solution found (tolerance 1.00e-04)
-Best objective 2.196454043929e+05, best bound 2.196635926900e+05, gap 0.0083%
-Slack Variables for Min assignment:
-z_a[text message] = -0.0
-
-Slack Variables for Min sales:
-z_s[ALL] = 0.04042460512322307
-
-Slack Variables for Max sales:
-z_s_bar[ALL] = 0.04042460512322307
-
-Constraints:
-Total number of constraints: 20109
-Total number of variables: 1500003
-
-Optimization complete for Mixed Binary Linear Model
-Maximum potential profit (in 100k dollars): 2,197
-Penalty for minimum assignment violations (in 100k dollars): 0,000
-Penalty for minimum sales violations (in 100k dollars): 0,000
-Penalty for maximum sales violations (in 100k dollars): 0,000
-Alpha, Beta, Gamma values: 417.5877532661888, 417.5877532661888, 417.5877532661888
-Objective value: 219,645
-
-
-
-
-
---- Running MBLP on dataset: GM1 ---------------------------------------------------------------------------------------
-Mapping for b_a: {'text message': 0, 'email': 1}
-Mapping for b_b: {'call center': 0, ('direct mail', 'email', 'text message'): 1}
-Mapping for b_a_bar: {'call center': 0, 'direct mail': 1}
-Mapping for b_s: {'ALL': 0}
-Mapping for b_s_bar: {'ALL': 0}
-Mapping for b_m_bar: {'ALL': 0}
-Gurobi Optimizer version 11.0.2 build v11.0.2rc0 (win64 - Windows 11+.0 (26100.2))
-
-CPU model: 12th Gen Intel(R) Core(TM) i7-12700KF, instruction set [SSE2|AVX|AVX2]
-Thread count: 12 physical cores, 20 logical processors, using up to 20 threads
-
-Optimize a model with 100756 rows, 10000004 columns and 1345526 nonzeros
-Model fingerprint: 0xf6794324
-Variable types: 4 continuous, 10000000 integer (10000000 binary)
-Coefficient statistics:
-  Matrix range     [4e-03, 2e+01]
-  Objective range  [5e-05, 9e+02]
-  Bounds range     [1e+00, 2e+04]
-  RHS range        [1e+00, 2e+05]
-Found heuristic solution: objective 3861012.8098
-Presolve removed 26614 rows and 9499832 columns
-Presolve time: 0.80s
-Presolved: 74142 rows, 500172 columns, 1056819 nonzeros
-Found heuristic solution: objective 4627875.6837
-Variable types: 1 continuous, 500171 integer (500169 binary)
-Found heuristic solution: objective 4741308.2086
-Iteration    Objective       Primal Inf.    Dual Inf.      Time
-   29583    5.8759027e+06   0.000000e+00   0.000000e+00     11s
-Concurrent spin time: 0.00s
-
-Solved with barrier
-   29583    5.8759027e+06   0.000000e+00   0.000000e+00     11s
-
-Root relaxation: objective 5.875903e+06, 29583 iterations, 4.50 seconds (3.13 work units)
-
-    Nodes    |    Current Node    |     Objective Bounds      |     Work
- Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
-
-     0     0 5875902.75    0    1 4741308.21 5875902.75  23.9%     -   10s
-H    0     0                    5875896.5669 5875902.75  0.00%     -   11s
-
-Explored 1 nodes (29583 simplex iterations) in 11.63 seconds (10.12 work units)
-Thread count was 20 (of 20 available processors)
-
-Solution count 5: 5.8759e+06 4.74131e+06 4.69515e+06 ... 3.86101e+06
-
-Optimal solution found (tolerance 1.00e-04)
-Best objective 5.875896566880e+06, best bound 5.875902746847e+06, gap 0.0001%
-Slack Variables for Min assignment:
-z_a[text message] = -0.0
-z_a[email] = -0.0
-
-Slack Variables for Min sales:
-z_s[ALL] = 0.013085551550043428
-
-Slack Variables for Max sales:
-z_s_bar[ALL] = 0.013085551550043428
-
-Constraints:
-Total number of constraints: 100756
-Total number of variables: 10000004
-
-Optimization complete for Mixed Binary Linear Model
-Maximum potential profit (in 100k dollars): 58,759
-Penalty for minimum assignment violations (in 100k dollars): 0,000
-Penalty for minimum sales violations (in 100k dollars): 0,000
-Penalty for maximum sales violations (in 100k dollars): 0,000
-Alpha, Beta, Gamma values: 862.2740421318402, 862.2740421318402, 862.2740421318402
-Objective value: 5.875,897
-
-
-
-
---- Running MBLP on dataset: GM5 --------------------------------------------------------------------------------------
-Mapping for b_a: {'direct mail': 0, 'email': 1}
-Mapping for b_b: {'call center': 0, ('direct mail', 'email', 'text message'): 1}
-Mapping for b_a_bar: {'call center': 0, 'text message': 1}
-Mapping for b_s: {'ALL': 0}
-Mapping for b_s_bar: {'ALL': 0}
-Mapping for b_m_bar: {'ALL': 0}
-Gurobi Optimizer version 11.0.2 build v11.0.2rc0 (win64 - Windows 11+.0 (26100.2))
-
-CPU model: 12th Gen Intel(R) Core(TM) i7-12700KF, instruction set [SSE2|AVX|AVX2]
-Thread count: 12 physical cores, 20 logical processors, using up to 20 threads
-
-Optimize a model with 201565 rows, 25000004 columns and 2946964 nonzeros
-Model fingerprint: 0x0b9ca488
-Variable types: 4 continuous, 25000000 integer (25000000 binary)
-Coefficient statistics:
-  Matrix range     [3e-03, 9e+00]
-  Objective range  [3e-06, 7e+02]
-  Bounds range     [1e+00, 2e+04]
-  RHS range        [1e+00, 2e+05]
-Found heuristic solution: objective 5251241.1371
-Found heuristic solution: objective 5251241.1371
-Presolve removed 37532 rows and 23861654 columns
-Presolve time: 3.80s
-Presolved: 164033 rows, 1138350 columns, 2420663 nonzeros
-Found heuristic solution: objective 6555771.7962
-Variable types: 1 continuous, 1138349 integer (1138347 binary)
-Found heuristic solution: objective 6783604.5384
-Root relaxation: objective 8.101844e+06, 55085 iterations, 19.09 seconds (11.96 work units)
-
-    Nodes    |    Current Node    |     Objective Bounds      |     Work
- Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
-
-     0     0 8101844.26    0    5 6783604.54 8101844.26  19.4%     -   37s
-H    0     0                    8101796.8443 8101844.26  0.00%     -   38s
-
-Explored 1 nodes (55085 simplex iterations) in 39.45 seconds (28.57 work units)
-Thread count was 20 (of 20 available processors)
-
-Solution count 5: 8.1018e+06 6.7836e+06 6.61721e+06 ... 5.25124e+06
-
-Optimal solution found (tolerance 1.00e-04)
-Best objective 8.101796844335e+06, best bound 8.101844263592e+06, gap 0.0006%
-Slack Variables for Min assignment:
-z_a[direct mail] = -0.0
-z_a[email] = -0.0
-
-Slack Variables for Min sales:
-z_s[ALL] = 0.0
-
-Slack Variables for Max sales:
-z_s_bar[ALL] = 0.0
-
-Constraints:
-Total number of constraints: 201565
-Total number of variables: 25000004
-
-Optimization complete for Mixed Binary Linear Model
-Maximum potential profit (in 100k dollars): 81,018
-Penalty for minimum assignment violations (in 100k dollars): 0,000
-Penalty for minimum sales violations (in 100k dollars): 0,000
-Penalty for maximum sales violations (in 100k dollars): 0,000
-Alpha, Beta, Gamma values: 656.7651257762399, 656.7651257762399, 656.7651257762399
-Objective value: 8.101,797
-"""
-
+            lookup[row['Instance']] = row[metric]
+    # Determine the default value: for CPU time missing values, default to infinity
+    # for other metrics default to None
+    default = np.inf if metric == 'CPU_time(SEC)' else None
+
+    return [lookup.get(inst, default) for inst in instances]
+
+
+def build_cpu_time_dict_from_csv(file_name, algo_names):
+    """
+    Reads the CSV file, filters rows for the given algorithms, and returns:
+      instances: a sorted list of unique instance names present in the CSV
+      cpu_time: a dictionary mapping each algorithm name to a list of CPU times corresponding to each instance
+    """
+    df = pd.read_csv(file_name)
+    df_filtered = df[df['Model'].isin(algo_names)]
+    instances = sorted(df_filtered['Instance'].unique())
+
+    def local_build_metric_list(metric, model):
+        """
+        Build a list of values for a given metric and model
+        Special handling for cpu_time if the Status is "out of memory" and if a value exists it is multiplied by 3
+        if no value exists returns np.inf
+        """
+        lookup = {}
+        df_model = df_filtered[df_filtered['Model'] == model]
+
+        for idx, row in df_model.iterrows():
+            if metric == 'CPU_time(SEC)' and str(row['Status']).strip().lower() == 'out of memory':
+                if pd.isna(row[metric]):
+                    lookup[row['Instance']] = np.inf
+                else:
+                    lookup[row['Instance']] = row[metric] * 3
+            else:
+                lookup[row['Instance']] = row[metric]
+
+        default = np.inf if metric == 'CPU_time(SEC)' else None
+        return [lookup.get(inst, default) for inst in instances]
+
+    cpu_time = {m: local_build_metric_list('CPU_time(SEC)', m) for m in algo_names}
+
+    return instances, cpu_time
+
+
+
+if __name__=='__main__':
+    file_name = 'results.csv'
+    colors = {
+        'MBLP': '#aec7e8',  # Light blue
+        'Matheuristic': '#98df8a',  # Light green
+        'AlternativeMBLP': '#ffbb78'  # Light orange
+    }
+    algo_names = ['MBLP', 'AlternativeMBLP']
+    # run models and save results
+    """collect_mblp_results(model_class=MBLP, instance='GS1')
+    collect_heuristic_results(instance='GS1', k=20)
+    collect_heuristic_without_modeling(instance='GS1', k=20)"""
+    # Plots for comparative analysis
+    """plot_from_csv(file_name, colors, dataset_type='GS')
+    plot_mipgap_vs_k(instance='GS2', optimal_objective=125742)
+    instances, cpu_time = build_cpu_time_dict_from_csv(file_name, algo_names)
+    performance_profile_from_times(instances, cpu_time, algo_names)"""
+    #plot_cpu_time_vs_k()
+    #plot_num_constrs_vs_k()
+    #plot_conflicts_vs_k()

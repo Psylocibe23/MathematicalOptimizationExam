@@ -1,4 +1,0 @@
-
-
-class Matheuristic:
-    pass
