@@ -1,3 +1,7 @@
+![Python](https://img.shields.io/badge/Python-3.12.3-blue.svg)
+![Gurobi](https://img.shields.io/badge/Gurobi-11.0.2-blue)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
+
 # Python Implementation of the paper "A Matheuristic for a Customer Assignment Problem in Direct Marketing"
 
 This repository contains a Python implementation of the article **"A Matheuristic for a Customer Assignment Problem in Direct Marketing"** by T. Bigler, M. Kammermann, and P. Baumann, published in **European Journal of Operational Research**, Volume 304, 2023, Pages 689–708  
@@ -5,7 +9,7 @@ This repository contains a Python implementation of the article **"A Matheuristi
 
 ## GitHub Repository with Generated Instances
 
-For thegit  generated instances, please refer to:  
+For the generated instances, please refer to:  
 [https://github.com/phil85/customer-assignment-instances](https://github.com/phil85/customer-assignment-instances)
 
 ### Article Summary
@@ -21,7 +25,7 @@ Given the enormous scale of the problem, exact optimization methods (like full m
 1. **MBLP (Mixed Binary Linear Program):**  
    A complete formulation capturing all constraints but scaling poorly.
 2. **Alternative MBLP:**  
-   A refined version of MBLP using preprocessing to reduce the number of conflict constraints, improving scalability.
+   An improved version of the MBLP that applies preprocessing techniques to significantly reduce the number of conflict constraints, enhancing model scalability.
 3. **Matheuristic:**  
    A hybrid approach combining optimization and heuristic methods:
    - Customers are first grouped by eligibility patterns.
@@ -33,6 +37,7 @@ Key innovations include a **preprocessing technique** that efficiently reduces r
 
 The matheuristic consistently produces high-quality solutions with minimal optimality gap and runs significantly faster than exact methods. In practice, it improves the company’s campaign profitability and scalability, proving effective even on real-world datasets with millions of customers.
 
+Note: Datasets vary by eligibility fraction and the number of eligibility patterns, affecting complexity and scalability
 
 ## Repository Structure
 
@@ -46,7 +51,7 @@ The matheuristic consistently produces high-quality solutions with minimal optim
   - **mblp_class.py** and **mblp.py**  
     Implement the Mixed-Binary Linear Program (MBLP) formulation  
   - **preprocessing.py**, **LP.py**, **iterative_algorithm.py**, and **matheuristic.py**  
-    Implement the matheuristic. (The methods `run_without_step_5()` or `run_without_new_modelin()` run the matheuristic with modifications in handling redundant cliques or group-level conflict constraints, respectively)  
+    Implement the matheuristic. (The methods `run_without_step_5()` or `run_without_new_modeling()` run the matheuristic with modifications in handling redundant cliques or group-level conflict constraints, respectively)  
   - **alternative_mblp.py**  
     Contains the alternative MBLP formulation that uses preprocessing
 
@@ -77,9 +82,10 @@ The matheuristic consistently produces high-quality solutions with minimal optim
 
 1. Run `main.py`
 2. Enter the path to the dataset (e.g., `Datasets/GS1`)
-3. Choose one of the three models: **MBLP**, **alternative MBLP**, or **Matheuristic**
-4. Use `test.py` for testing on small instances
-5. Run `scalability_analysis.py` on one instance at a time for scalability studies
+3. Select the desired model: **MBLP**, **alternative MBLP**, or **Matheuristic**
+4. (Optional) Use `test.py` for testing on toy datasets or small instances
+5. (Optional) Run `scalability_analysis.py` (on one instance at a time) for scalability experiments
+
 
 ## Experimental Setup
 
