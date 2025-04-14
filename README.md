@@ -5,7 +5,7 @@ This repository contains a Python implementation of the article **"A Matheuristi
 
 ## GitHub Repository with Generated Instances
 
-For the generated instances, please refer to:  
+For thegit  generated instances, please refer to:  
 [https://github.com/phil85/customer-assignment-instances](https://github.com/phil85/customer-assignment-instances)
 
 ### Article Summary
