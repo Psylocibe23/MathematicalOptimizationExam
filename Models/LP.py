@@ -259,17 +259,20 @@ class LPMix:
 
         if self.model.status == GRB.OPTIMAL:
             self.lp_solution = {key: var.X for key, var in self.x.items()}
-            print("Optimal LP objective value:", self.model.objVal)
+            print("\nOptimal LP objective value:", self.model.objVal)
 
-            print("Slack variables for Minimum Assignment:")
+            print("\nSlack variables for Minimum Assignment:")
             for key in self.data['b_a'].keys():
                 print(f"z_a[{key}] = {self.z_a[key].X}")
-            print("Slack variables for Minimum Sales:")
+            print("\nSlack variables for Minimum Sales:")
             for key in self.data['b_s'].keys():
                 print(f"z_s[{key}] = {self.z_s[key].X}")
-            print("Slack variables for Maximum Sales:")
+            print("\nSlack variables for Maximum Sales:")
             for key in self.data['b_s_bar'].keys():
                 print(f"z_s_bar[{key}] = {self.z_s_bar[key].X}")
+            lp_assignment_count = sum(var_value for var_value in self.lp_solution.values() if var_value > 0)
+            print(f"\nLP assignments and constraints:")
+            print(f"LP total number of assignments: {lp_assignment_count}")
 
 
     def run(self):
@@ -279,4 +282,4 @@ class LPMix:
         self.count_conflict_constraints()
         self.set_objective()
         self.optimize()
-        print("Total number of constraints in the model:", self.model.NumConstrs)
+        print(f"Total number of constraints in the model: {self.model.NumConstrs}\n")

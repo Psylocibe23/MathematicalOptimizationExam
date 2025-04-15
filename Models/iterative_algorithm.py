@@ -246,7 +246,7 @@ class IterativeAlgo:
                     self.update_eligibilities(assigned_candidates, activity)
                     self.update_constraints_dictionaries(assigned_candidates, activity)
                 else:
-                    print(f"No candidates found for activity {activity}")
+                    pass
 
         return self.assignment_dict
 
@@ -327,6 +327,8 @@ class IterativeAlgo:
         total_profit = self.compute_potential_profit()
         penalty = self.compute_penalties()
         obj_val = total_profit - abs(penalty)
-        print(f"Final objective = {obj_val}")
+        iterative_assignment_total = sum(self.assignment_counts[customer] for customer in self.assignment_counts)
+        print(f"\nIterative algorithm total number of assignments: {iterative_assignment_total}")
+        print(f"\nFINAL OBJECTIVE VALUE = {obj_val}")
 
         return obj_val

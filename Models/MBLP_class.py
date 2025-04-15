@@ -230,7 +230,7 @@ class base_MBLP:
         self.model.optimize()
 
         if self.model.status == GRB.OPTIMAL:
-            print("Slack Variables for Min assignment:")
+            print("\nSlack Variables for Min assignment:")
             for key in self.data['b_a'].keys():
                 print(f"z_a[{key}] = {self.z_a[key].X if isinstance(self.z_a[key], Var) else self.z_a[key]}")
 
@@ -287,5 +287,5 @@ class base_MBLP:
                 formatted_penalty_m = f"{penalty_m / 100000:,.3f}".replace(",", "X").replace(".", ",").replace("X", ".")
                 print(f"Penalty for minimum contact violations (in 100k dollars): {formatted_penalty_m}")
             formatted_obj = f"{self.model.objVal / 1000:,.3f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            print(f"Objective value: {formatted_obj}")
+            print(f"\nOBJECTIVE FUNCTION VALUE: {formatted_obj}")
             print(f"MipGap: {self.model.MIPGap}")

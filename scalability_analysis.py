@@ -36,7 +36,8 @@ def get_status_string(status):
 
 def update_results_csv(new_row, file_name, field_names):
     """
-        After the model results are collected, updates the csv file
+    After the model results are collected, updates the CSV file.
+    new_row: a dictionary with keys that should match the field_names
     """
     dtype_dict = {
         'Model': str,
@@ -49,20 +50,30 @@ def update_results_csv(new_row, file_name, field_names):
         'Status': str
     }
 
+    # Ensure new_row has all expected fields
+    for field in field_names:
+        if field not in new_row:
+            new_row[field] = ""
+
+    new_row_df = pd.DataFrame([new_row]).astype(dtype_dict, errors='ignore')
+
     if os.path.exists(file_name):
         df = pd.read_csv(file_name)
         condition = (df['Model'] == new_row['Model']) & (df['Instance'] == new_row['Instance'])
-        new_row_df = pd.DataFrame([new_row])
-        new_row_df = new_row_df.astype(dtype_dict)
         if condition.any():
-            df.loc[condition, :] = new_row_df
+            # Count the number of rows matching the condition
+            count = int(condition.sum())
+            # Create a DataFrame with that many identical rows from new_row_df
+            repeated_df = pd.concat([new_row_df] * count, ignore_index=True)
+            # Update matching rows
+            df.loc[condition, :] = repeated_df.values
         else:
             df = pd.concat([df, new_row_df], ignore_index=True)
         df.to_csv(file_name, index=False)
     else:
-        df = pd.DataFrame([new_row], columns=field_names)
-        df = df.astype(dtype_dict)
+        df = pd.DataFrame([new_row], columns=field_names).astype(dtype_dict, errors='ignore')
         df.to_csv(file_name, index=False)
+
 
 # -------------------------------------------------------------------------------------------------------------------
 # Results Collection Functions
