@@ -383,7 +383,7 @@ def plot_cpu_time_vs_k(instance='GS2'):
 
 def plot_num_constrs_vs_k(instance='GS2'):
     """
-    Computes and plots the CPU time (sec) versus the number of clusters (k) for the Matheuristic model on a given
+    Computes and plots the number of constraints versus the number of clusters (k) for the Matheuristic model on a given
     instance for each k
     """
     instance_path = f'Datasets\\{instance}'
@@ -414,7 +414,7 @@ def plot_num_constrs_vs_k(instance='GS2'):
 
 def plot_conflicts_vs_k(instance='GS2'):
     """
-    Computes and plots the Memory usage (MB) versus the number of clusters (k) for the Matheuristic model on a given
+    Computes and plots the number of conflict constraints versus the number of clusters (k) for the Matheuristic model on a given
     instance for each k
     """
     instance_path = f'Datasets\\{instance}'
