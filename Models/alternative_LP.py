@@ -3,8 +3,10 @@ from gurobipy import Model, GRB, quicksum
 
 
 class AlternativeLP(LPMix):
-    # Second LP formulation used to test the impact of group-level constraints (LPMix) vs pairs of conflicting
-    # activities constraints (AlternativeLP)
+    """
+    Second LP formulation used to test the impact of group-level constraints (LPMix) vs pairs of conflicting
+    activities constraints (AlternativeLP)
+    """
     def __init__(self, data, groups, subgroups):
         super().__init__(data, groups, subgroups)
 
