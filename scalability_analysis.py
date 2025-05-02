@@ -61,6 +61,8 @@ def update_results_csv(new_row, file_name, field_names):
         df = pd.read_csv(file_name)
         condition = (df['Model'] == new_row['Model']) & (df['Instance'] == new_row['Instance'])
         if condition.any():
+            # If a row for this (Model, Instance) pair already exists,
+            # overwrite it by repeating our new_row for each occurrence.
             # Count the number of rows matching the condition
             count = int(condition.sum())
             # Create a DataFrame with that many identical rows from new_row_df
@@ -171,7 +173,7 @@ def collect_heuristic_results(instance='GS1', k=20):
         'CPU_time(SEC)': round(end_time, 2),
         'Memory_usage(MB)': abs(round(mem_usage, 2)),
         'Number_constraints': model.lp.model.NumConstrs,
-        'Status': f"K={k}"
+        'Status': f"K={k}"  # Here the status is the value of k (# sungroups) instead of model status
     }
 
     update_results_csv(result_row, file_name, field_names)
@@ -223,7 +225,7 @@ def collect_heuristic_without_modeling(instance='GS1', k=20):
         'CPU_time(SEC)': round(end_time, 2),
         'Memory_usage(MB)': abs(round(mem_usage, 2)),
         'Number_constraints': model.lp.model.NumConstrs,
-        'Status': f"K={k}"
+        'Status': f"K={k}"  # Here the status is the value of k (# sungroups) instead of model status
     }
 
     update_results_csv(result_row, file_name, field_names)
