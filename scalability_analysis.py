@@ -311,7 +311,7 @@ def plot_from_csv(file_name, colors, dataset_type='GS'):
 
 def plot_mipgap_vs_k(instance='GS2', optimal_objective=125742):
     """
-    Computes and plots the MipGap (%) versus the number of clusters (k) for the Matheuristic model on a given instance
+    Computes and plots the MipGap (%) versus the number of clusters k for the Matheuristic model on a given instance
     For each k, it runs the Matheuristic model, retrieves the objective function value using
     the iterative algorithm, and calculates the MipGap (%) with respect to the provided optimal objective
 
@@ -350,7 +350,7 @@ def plot_mipgap_vs_k(instance='GS2', optimal_objective=125742):
 
 def plot_cpu_time_vs_k(instance='GS2'):
     """
-    Computes and plots the CPU time (sec) versus the number of clusters (k) for the Matheuristic model on a given
+    Computes and plots the CPU time (sec) versus the number of clusters k for the Matheuristic model on a given
     instance for each k
     """
     instance_path = f'Datasets\\{instance}'
@@ -385,7 +385,7 @@ def plot_cpu_time_vs_k(instance='GS2'):
 
 def plot_num_constrs_vs_k(instance='GS2'):
     """
-    Computes and plots the number of constraints versus the number of clusters (k) for the Matheuristic model on a given
+    Computes and plots the number of constraints versus the number of clusters k for the Matheuristic model on a given
     instance for each k
     """
     instance_path = f'Datasets\\{instance}'
@@ -465,7 +465,7 @@ def performance_profile_from_times(instances, times, algo_names):
         for algo in algo_names:
             fraction = np.mean(ratios[algo] <= t)
             profile[algo].append(fraction)
-    print("Instances:", instances)
+    print(f"Instances: {instances}")
 
     for algo in algo_names:
         print(f"\nRatios for {algo}:")
@@ -486,7 +486,7 @@ def performance_profile_from_times(instances, times, algo_names):
 
 def build_metric_list(metric, model, df_filtered):
     """
-        Build a list of metric values for each instance for a given model
+    Build a list of metric values for each instance for a given model
     """
     df_model = df_filtered[df_filtered['Model'] == model]
 
@@ -507,7 +507,6 @@ def build_metric_list(metric, model, df_filtered):
 def build_cpu_time_dict_from_csv(file_name, algo_names):
     """
     Reads the CSV file, filters rows for the given algorithms, and returns:
-      instances: a sorted list of unique instance names present in the CSV
       cpu_time: a dictionary mapping each algorithm name to a list of CPU times corresponding to each instance
     """
     df = pd.read_csv(file_name)
