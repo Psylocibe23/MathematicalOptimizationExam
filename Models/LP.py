@@ -3,7 +3,9 @@ from Models.MBLP_class import base_MBLP
 
 
 class LPMix:
-
+"""
+LP formulation to solve the problem at group-level in the Matheuristic
+"""
     def __init__(self, data, groups, subgroups):
         self.model = Model('LP')
         self.data = data
