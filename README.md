@@ -78,7 +78,7 @@ Note: Datasets vary by eligibility fraction and the number of eligibility patter
 
 - **Real-World Instances:**  
   - **RL (Large):** Up to 1.4 million customers and 385 activities  
-  - **RVL (Very Large):** Over 2 million customers and up to 295 activities 
+  - **RVL (Very Large):** Over 2 million customers and up to 295 activities
 
 ## How to Use
 
@@ -95,6 +95,41 @@ Note: Datasets vary by eligibility fraction and the number of eligibility patter
 - **Implementation:** Python 3.12.3, Gurobi 11.0.2  
 - **Processor:** Intel Core i7-12700KF (12th Gen) @ 3.61 GHz  
 - **Memory:** 32 GB RAM
+
+## Datasets Download
+toy_dataset: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/toy_dataset.zip
+
+GS1: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GS1.zip
+
+GS2: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GS2.zip
+
+GS3: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GS3.zip
+
+GS4: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GS4.zip
+
+GS5: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GS5.zip
+
+GS6: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GS6.zip
+
+GS7: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GS7.zip
+
+GS8: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GS8.zip
+
+GM1: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GM1.zip
+
+GM2: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GM2.zip
+
+GM3: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GM3.zip
+
+GM4: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GM4.zip
+
+GM5: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GM5.zip
+
+GM6: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GM6.zip
+
+GM7: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GM7.zip
+
+GM8: https://github.com/Psylocibe23/MathematicalOptimizationExam/raw/refs/heads/main/Datasets_zip/GM8.zip
 
 
 ## License
