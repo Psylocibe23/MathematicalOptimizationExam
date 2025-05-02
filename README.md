@@ -59,7 +59,8 @@ Note: Datasets vary by eligibility fraction and the number of eligibility patter
   A script to run the models on a toy dataset or on small instances for testing
 
 - **scalability_analysis.py**  
-  A script to perform scalability analysis and generate plots. Due to computational and memory limitations, it is designed to run on one instance at a time
+  A script to perform scalability analysis and generate plots. Due to computational and memory limitations, it is designed to run on one instance at a time.  
+**There is no need to run this script again**, as all the results have already been generated and are available in the `Plots` folder and the `results.txt` file.
 
 - **Plots/**  
   Contains the resulting plots from the scalability analysis on the small and medium instances
