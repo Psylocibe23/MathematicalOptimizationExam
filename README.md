@@ -67,6 +67,7 @@ Note: Datasets vary by eligibility fraction and the number of eligibility patter
 
 - **results.csv**  
   Collects the Objective Function Value, MipGap (%), CPU time (sec), Memory Usage (MB), and Number of Constraints for the datasets that have been analyzed: GS1 to GS8 and GM1 to GM8
+  Download file: https://media.githubusercontent.com/media/Psylocibe23/MathematicalOptimizationExam/refs/heads/main/results.csv
 
 ## Datasets Description
 
